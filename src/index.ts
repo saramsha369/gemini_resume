@@ -6,9 +6,8 @@ import { promises as fs } from "fs";
 import { GenerateContentRequest } from "@google-cloud/vertexai";
 import path from "path";
 import { convertDocxFiles } from "./converter";
-
-
-
+import { ResponseRequired } from "./@types";
+import { v4 } from "uuid";
 
 const TEXT_PROMPT = {
     text: `
@@ -44,7 +43,6 @@ const TEXT_PROMPT = {
     Below is the resume data:
 `};
 
-
 async function generateContent(name: string, filePath: string, fileType: string) {
     const startTime = new Date()
 
@@ -73,9 +71,10 @@ async function generateContent(name: string, filePath: string, fileType: string)
     const streamingResp = await generativeModel.generateContent(req);
     if (!streamingResp.response) return
     if (!streamingResp.response.candidates) return
-    const response = streamingResp.response.candidates[0].content.parts[0].text as string
-
-    writeToFile(`${name}.json`, response)
+    const response = JSON.parse(streamingResp.response.candidates[0].content.parts[0].text!) as ResponseRequired
+    response.educations =response.educations?.map(item=>({...item,id: v4()}))
+    response.experiences= response.experiences?.map(item=>({...item,id: v4()}))
+    writeToFile(`${name}.json`, JSON.stringify(response))
 
     const endTime = new Date()
     console.log(`\n\nTask "${name}" Ended: ${(endTime.getTime() - startTime.getTime()) / 1000}seconds`);

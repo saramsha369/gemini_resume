@@ -19,11 +19,13 @@
     "firebase-admin": "^12.6.0",
     "mammoth": "^1.8.0",
     "p-limit": "^6.1.0",
+    "uuid": "^10.0.0",
     "word-extractor": "^1.0.4"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.7.9",
+    "@types/uuid": "^10.0.0",
     "@types/word-extractor": "^1.0.5"
   }
 }

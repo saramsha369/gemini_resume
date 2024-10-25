@@ -9,6 +9,8 @@ Experience.jobTitle -> JobsData.jobTitle
 Experience.occupation -> JobsData.occupation 
 Experience.duration -> experience End Date/Present Date - Start Date (in terms on number of months)
 
+Map titles-> array of unique jobData.id (map skills of the resume based on the job.jobTitles and provide an array of matching jobs based on just skills)
+
 2. Do not create new job other then the provided ones. If you are unable to map the experience with any job{occupation or industry or id} then do not add that job to the output of experience list.
 
 3. If you having difficulty to retrieve the fields of the required data then fill it with '' for strings and default value. (The data is to be saved in firebase)
@@ -55,6 +57,7 @@ type Status = 'ongoing' | 'completed' | 'dropout';
 interface ResponseRequired {
     experiences?: Experience[];
     educations?: Education[];
+    titles?:string[]
 }
 
 
