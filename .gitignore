@@ -1,0 +1,7 @@
+node_modules
+
+generated-result/*
+resumes/*
+ignore
+/credentials/*.*
+src/credentials/*.json
