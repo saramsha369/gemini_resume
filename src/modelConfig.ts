@@ -8,10 +8,9 @@ const model = 'gemini-1.5-flash-002';
 export const generativeModel = vertex_ai.preview.getGenerativeModel({
   model: model,
   generationConfig: {
-    'maxOutputTokens': 3000,
+    'maxOutputTokens': 2000,
     'temperature': 1,
     'topP': 0.95,
-
   },
   safetySettings: [
     {
