@@ -3,118 +3,119 @@ import { listFilesInDirectory } from "./filesToArray";
 import { generativeModel } from "./modelConfig";
 import { writeToFile } from "./writeFile";
 import { promises as fs } from "fs";
-import { GenerateContentRequest } from "@google-cloud/vertexai";
+import { GenerateContentRequest, Part } from "@google-cloud/vertexai";
 import path from "path";
-import { convertDocxFiles } from "./converter";
+import {
+  arrayBufferToBase64File,
+  convertHeicToJpeg,
+  getMimeTypeFromUrl,
+  readFileAsArrayBuffer,
+  wordFilesToText,
+} from "./converter";
 import { ResponseRequired } from "./@types";
 import { v4 } from "uuid";
+import { resumeList } from "./resumeList";
 
-const TEXT_PROMPT = {
-    text: `
-    
-    Task: Extract Experience, Education, and Skills from the following resume data. Organize the information into a structured JSON format with the following structure:
+const TEXT_PROMPT = { text: "" };
 
-    Note: Dates does not have to be precious just MM/YYYY would be okay too or empty string
-    Experience: An array of objects where each object contains:
-
-    jobTitle (string)
-    companyName (string)
-    location (string)
-    datesOfEmployment: An object with start (string) and end (string or \"Present\").
-    responsibilitiesAndAchievements: An array of bullet points (strings) summarizing responsibilities and achievements.
-    
-    
-    Education: An array of objects where each object contains:
-
-    degree (string)
-    institution (string)
-    location (string)
-    graduationYear (string or Date or Expected Year)
-    relevantCoursework (optional array of strings)
-    grades (string percentage/gpa)
-    
-
-    Skills: An object that includes:
-
-    technicalSkills: An array of technical skills (strings).
-    softSkills: An array of soft skills (strings).
-    languages: An optional array where each object contains language (string) and proficiency (string).
-    
-    Below is the resume data:
-`};
-
-async function generateContent(name: string, filePath: string, fileType: string) {
-    const startTime = new Date()
-
-    const FILE_TO_UPLOAD = await fs.readFile(filePath, "base64")
+async function generateContent(name: string, data: string, fileType: string) {
+  try {
+    const parts: Part[] = [
+      TEXT_PROMPT,
+      {
+        inlineData: {
+          data,
+          mimeType: fileType,
+        },
+      },
+    ];
 
     const req: GenerateContentRequest = {
-
-        contents: [
-            {
-                role: 'user', parts: [
-                    TEXT_PROMPT,
-                    {
-                        inlineData: {
-                            data: FILE_TO_UPLOAD,
-                            mimeType: fileType
-                        }
-                    }
-                ]
-            }
-        ],
-        generationConfig: {
-            responseMimeType: "application/json"
-        },
+      contents: [{ role: "user", parts }],
+      generationConfig: { responseMimeType: "application/json" },
     };
 
-    const streamingResp = await generativeModel.generateContent(req);
-    if (!streamingResp.response) return
-    if (!streamingResp.response.candidates) return
-    const response = JSON.parse(streamingResp.response.candidates[0].content.parts[0].text!) as ResponseRequired
-    response.educations =response.educations?.map(item=>({...item,id: v4()}))
-    response.experiences= response.experiences?.map(item=>({...item,id: v4()}))
-    writeToFile(`${name}.json`, JSON.stringify(response))
+    const modelResponse = await generativeModel.generateContent(req);
 
-    const endTime = new Date()
-    console.log(`\n\nTask "${name}" Ended: ${(endTime.getTime() - startTime.getTime()) / 1000}seconds`);
+    if (!modelResponse.response) return;
+    if (!modelResponse.response.candidates) return;
+    const response = JSON.parse(
+      modelResponse.response.candidates[0].content.parts[0].text!
+    ) as ResponseRequired;
+    response.educations = response.educations?.map((item) => ({
+      ...item,
+      id: v4(),
+    }));
+    response.experiences = response.experiences?.map((item) => ({
+      ...item,
+      id: v4(),
+    }));
+
+    writeToFile(`${name}.json`, JSON.stringify(response));
+  } catch (err: any) {
+    console.log(`Error generating data: ${name}`);
+    throw err;
+  }
 }
-
 async function main() {
-    await convertDocxFiles()
-    const promptPath = path.join(process.cwd(), "/src/prompt.txt")
-    const prompt_text = await fs.readFile(promptPath, "utf-8")
+  const promptPath = path.join(process.cwd(), "/src/prompt.txt");
+  const prompt_text = await fs.readFile(promptPath, "utf-8");
 
+  const jobData = path.join(process.cwd(), "/src/jobsData.json");
+  const jobList = await fs.readFile(jobData, "utf-8");
 
-    const jobData = path.join(process.cwd(), "/src/jobsData.json")
-    const jobList = await fs.readFile(jobData, "utf-8")
+  TEXT_PROMPT.text = `${prompt_text} JobsData:${jobList.toString()}`;
 
-    TEXT_PROMPT.text = `${prompt_text} JobsData:${jobList.toString()}`
-    const resumesPath = path.join(process.cwd(), "/resumes")
-    const filesToParse = listFilesInDirectory(resumesPath)
-    const limit = pLimit(4)
-    const taskList = filesToParse.map(file => {
-        switch (file.extension) {
-            case ".pdf":
-                return limit(() => generateContent(file.name, file.fullPath, "application/pdf"))
+  const limit = pLimit(4);
+  const taskList = resumeList.map(async (url) => {
+    const { contentType, data } = await getMimeTypeFromUrl(url);
+    console.log({ contentType });
+    const fileName = new Date().toISOString()
+    switch (contentType) {
+      case "application/pdf": {
+        const base64String = arrayBufferToBase64File(data, "application/pdf");
+        return limit(() =>
+          generateContent(fileName, base64String, "application/pdf")
+        );
+      }
 
-            case ".png":
-                return limit(() => generateContent(file.name, file.fullPath, "image/png"))
+      case "image/png": {
+        const base64String = arrayBufferToBase64File(data, "image/png");
+        return limit(() => generateContent(fileName, base64String, "image/png"));
+      }
 
-            case ".jpg":
-            case ".jpeg":
-                return limit(() => generateContent(file.name, file.fullPath, "image/jpg"))
+      case "image/jpeg":
+      case "image/jpg": {
+        const base64String = arrayBufferToBase64File(data, "image/jpg");
+        return limit(() => generateContent(fileName, base64String, "image/jpg"));
+      }
 
-            case ".txt":
-                return limit(() => generateContent(file.name, file.fullPath, "text/plain"))
+      case "image/hiec": {
+        const fileBuffer = await readFileAsArrayBuffer(data);
+        const resultBuffer = await convertHeicToJpeg(fileBuffer);
+        const base64String = arrayBufferToBase64File(resultBuffer, "image/jpg");
+        return limit(() => generateContent(fileName, base64String, "image/jpg"));
+      }
 
-        }
-    })
-    await Promise.all(taskList)
+      case "application/msword":
+      case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+        const fileBuffer = await readFileAsArrayBuffer(data);
+        const resultBuffer = await wordFilesToText(fileBuffer);
+        const base64String = arrayBufferToBase64File(
+          resultBuffer,
+          "text/plain"
+        );
+
+        return limit(() => generateContent(url, base64String, "text/plain"));
+      }
+    }
+  });
+  const result = await Promise.allSettled(taskList);
+  await writeToFile("error.json", JSON.stringify(result), "/src");
+  console.log("Complete Result");
 }
 try {
-
-    main();
+  main();
 } catch (err) {
-    console.log(err);
+  console.log("error occurred");
 }

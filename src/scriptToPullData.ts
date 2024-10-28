@@ -10,31 +10,36 @@ admin.initializeApp({
 
 const db = getFirestore();
 
-// async function getAllDocumentsPaginated(collectionName: string): Promise<any[]> {
-//   const allDocuments: any[] = [];
-//   let lastSnapshot: QuerySnapshot | null = null;
+async function getAllDocumentsPaginated(collectionName: string,properties:string[]): Promise<any[]> {
+  const allDocuments: any[] = [];
+  let lastSnapshot: QuerySnapshot | null = null;
 
-//   while (true) {
-//     let query: Query = db.collection(collectionName);
-//     if (lastSnapshot) {
-//       query = query.startAfter(lastSnapshot.docs[lastSnapshot.docs.length - 1]);
-//     }
+  while (true) {
+    let query: Query = db.collection(collectionName);
+    if (lastSnapshot) {
+      query = query.startAfter(lastSnapshot.docs[lastSnapshot.docs.length - 1]);
+    }
 
-//     const snapshot = await query.limit(1000).get(); // Adjust limit as needed
+    const snapshot = await query.limit(1000).get(); // Adjust limit as needed
 
-//     if (snapshot.empty) {
-//       break;
-//     }
+    if (snapshot.empty) {
+      break;
+    }
 
-//     snapshot.forEach((doc) => {
-//       allDocuments.push({ id: doc.id, ...doc.data() });
-//     });
-//     lastSnapshot = snapshot;
-//   }
+    snapshot.forEach((doc) => {
+      const document:any = {
+        id: doc.id
+      }
+      for(const property of properties)
+        document[property] = doc.data()[property]
+      allDocuments.push();
+    });
+    lastSnapshot = snapshot;
+  }
 
-//   return allDocuments;
-// }
-async function getAllDocumentsPaginated(collectionName: string): Promise<any[]> {
+  return allDocuments;
+}
+async function getAllDocumentsPaginatedForJobs(collectionName: string): Promise<any[]> {
   const allDocuments: any[] = [];
   let lastSnapshot: QuerySnapshot | null = null;
 
@@ -55,7 +60,7 @@ async function getAllDocumentsPaginated(collectionName: string): Promise<any[]> 
       const selectedData = {
         id: doc.id,
         industry: doc.data().industry,
-        jobTitle: doc.data().jobTitle,
+        jobTitle: doc.data().jobTitle.en,
         occupation: doc.data().occupation,
       };
 
@@ -72,10 +77,11 @@ async function getAllDocumentsPaginated(collectionName: string): Promise<any[]> 
 
   return allDocuments;
 }
-  getAllDocumentsPaginated("jobs")
+
+
+  getAllDocumentsPaginatedForJobs("jobs")
   .then((documents) => {
     const jsonFile = fs.createWriteStream("./src/jobsData.json","utf-8")
-    console.log(documents);
     jsonFile.write(JSON.stringify(documents))
     jsonFile.close()    
   })
@@ -84,11 +90,10 @@ async function getAllDocumentsPaginated(collectionName: string): Promise<any[]> 
   });
 
 
-  /*
-  getAllDocumentsPaginated("occupations")
+  
+  getAllDocumentsPaginated("occupations",['name.en','industryRef'])
   .then((documents) => {
     const jsonFile = fs.createWriteStream("./src/occupationsData.json","utf-8")
-    console.log(documents);
     jsonFile.write(JSON.stringify(documents))
     jsonFile.close()    
   })
@@ -96,14 +101,12 @@ async function getAllDocumentsPaginated(collectionName: string): Promise<any[]> 
     console.error("An error occurred:", error);
   });
 
-  getAllDocumentsPaginated("industries")
+  getAllDocumentsPaginated("industries",['name.en',])
   .then((documents) => {
     const jsonFile = fs.createWriteStream("./src/industriesData.json","utf-8")
-    console.log(documents);
     jsonFile.write(JSON.stringify(documents))
     jsonFile.close()    
   })
   .catch((error) => {
     console.error("An error occurred:", error);
   });
-  */

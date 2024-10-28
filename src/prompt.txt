@@ -22,15 +22,36 @@ type LocalizedString {
 ```
 
 What you have to do? (Instructions)
-- Map the Experience with Job. Try to match the user experience with suitable job based on user job and their job roles with dataset job.jobTitle. You can estimate just by the job.jobTitle and user experience which job is a good fit for mapping. 
+- Map the Experience with matching job. Try to match the user experience with suitable job based on user job and their job roles with jobDataset job.jobTitle. You can estimate just by the job.jobTitle, occupation.name.en, industry.name.en and user experience which job is a good fit for mapping. 
 ```
+
+industry {
+  id,
+  "name.en"
+}
+
+occupation {
+  id,
+  industryRef,
+  "name.en"
+}
+
+job {
+  id,
+  industry,
+  occupation
+}
+
+Relation: industry have many occupations and occupation has many jobs.
+Where occupation.industryRef -> industry.id, job.industry->occupation.industryRef/industry.id and job.occupation->occupation.id
+
 Experience {
 job: job.id
 industry?: job.industry;
 occupation?: job.occupation;
 }
 ```
-- Consider suitable job prioritizing user skills & Roles of the users. Then make a guess If the users is a good fit for the jobTitle based on your assumptions, and provide a uniq list of job.id array. 
+- Recommend suitable job prioritizing user skills & Roles of the users. You can use current `experience.occupation` and `experience.industry` to recommend suitable `jobs` and `job.jobTitles`. Keep it a small and good recommendations.
 ```
 type titles: job.id[]
 ```
@@ -83,5 +104,11 @@ titles?:string[]
 }
 ```
 
-Note: Both education and experience both data types should have all the properties and arrange all the properties in ascending order. Set default values like ‘’, null,[],{} for string, number, array and objects if relative field is not found. (For firebase database) Do not create new jobs and only use the job data provided here. The resume can be in image, pdf or text format. 
+Note: Both education and experience both data types should have all the properties and arrange all the properties in ascending order. Do not create new jobs and only use the job data provided here. The resume can be in image, pdf or text format. 
+
+Use these default values where data is missing:
+Empty strings ('') for text fields.
+null for numbers.
+Empty arrays ([]) for lists.
+Empty objects ({}) for nested or optional properties.
 

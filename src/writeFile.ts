@@ -10,7 +10,6 @@ export const writeToFile = (fileName:string,data:string,outputPath:string = "/ge
         writer.close()
         resolve(pathToWrite)
     } catch (err) {
-        console.log(err);
         reject(`Generating file failed ${fileName}`);
     }
 })
